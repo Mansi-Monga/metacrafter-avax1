@@ -1,15 +1,17 @@
-###Title:
+#Title:
+
  Implementing Require, Assert, and Revert Statements in a Solidity Smart Contract
 
-##Description
+#Description
+
 
 This project demonstrates the use of require(), assert(), and revert() statements in a Solidity smart contract. These statements are essential for ensuring the correctness and security of smart contracts by enabling validation checks, state assertions, and error handling.
 
-###Program Overview
+#Program Overview
 
 We have created a Solidity smart contract named SimpleToken that includes functionalities for minting, burning, transferring tokens, and handling disabled functions. The key focus is to illustrate the use of require(), assert(), and revert() statements in different scenarios.
 
-#####Explanation of Key Functions
+#Explanation of Key Functions
 Minting Tokens
 
 Function: mint(address to, uint256 amount)
