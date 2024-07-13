@@ -1,72 +1,94 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.18;
 
-contract UniqueToken {
-    // Public variables to store the token details
-    string public name;
-    string public symbol;
-    uint256 public totalSupply;
-
-    // Mapping to keep track of each address's balance
-    mapping(address => uint256) public balances;
-
-    // Constructor to initialize the token details
-    constructor(string memory _name, string memory _symbol) {
-        name = _name;
-        symbol = _symbol;
-        totalSupply = 0; // Initial total supply is 0
+contract DecentralizedLibrary {
+    struct Book {
+        string title;
+        string author;
+        bool isAvailable;
     }
 
-    // Function to mint new tokens
-    function mint(address to, uint256 amount) public {
-        _requireValidAmount(amount);
-        totalSupply += amount; // Increase the total supply
-        balances[to] += amount; // Increase the recipient's balance
-        emit Transfer(address(0), to, amount); // Emit a transfer event from the zero address
+    struct User {
+        bool isRegistered;
+        uint8 borrowedBooks;
     }
 
-    // Function to burn tokens
-    function burn(address from, uint256 amount) public {
-        _requireValidAmount(amount);
-        _requireSufficientBalance(from, amount);
-        totalSupply -= amount; // Decrease the total supply
-        balances[from] -= amount; // Decrease the holder's balance
-        emit Transfer(from, address(0), amount); // Emit a transfer event to the zero address
+    address public manager;
+    Book[] public books;
+    mapping(address => User) public users;
+    uint8 public constant maxBorrowedBooks = 3;
+
+    event BookAdded(uint256 bookId, string title, string author);
+    event BookBorrowed(address indexed user, uint256 bookId);
+    event BookReturned(address indexed user, uint256 bookId);
+    event UserRegistered(address indexed user);
+
+    modifier onlyManager() {
+        require(msg.sender == manager, "Only the manager can call this function");
+        _;
     }
 
-    // Internal function to validate the amount
-    function _requireValidAmount(uint256 amount) internal pure {
-        require(amount > 0, "Amount must be greater than zero");
+    modifier isRegisteredUser() {
+        require(users[msg.sender].isRegistered, "User is not registered");
+        _;
     }
 
-    // Internal function to check if an address has sufficient balance
-    function _requireSufficientBalance(address account, uint256 amount) internal view {
-        require(balances[account] >= amount, "Insufficient balance");
+    modifier validBookId(uint256 bookId) {
+        require(bookId < books.length, "Invalid book ID");
+        _;
     }
 
-    // Function to transfer tokens from one address to another
-    function transfer(address from, address to, uint256 amount) public {
-        _requireValidAmount(amount);
-        _requireSufficientBalance(from, amount);
-
-        uint256 previousBalanceFrom = balances[from];
-        uint256 previousBalanceTo = balances[to];
-
-        balances[from] -= amount;
-        balances[to] += amount;
-
-        assert(balances[from] == previousBalanceFrom - amount); // Ensure the balances are correctly updated
-        assert(balances[to] == previousBalanceTo + amount);
-
-        emit Transfer(from, to, amount); // Emit a transfer event
+    modifier bookAvailable(uint256 bookId) {
+        require(books[bookId].isAvailable, "Book is not available");
+        _;
     }
 
-    // Function to demonstrate revert usage
-    function disableFunction() public pure {
-        revert("This function is disabled"); // Revert with an error message
+    constructor() {
+        manager = msg.sender;
     }
 
-    // Event to log token transfers
-    event Transfer(address indexed from, address indexed to, uint256 value);
+    function registerUser() public {
+        require(!users[msg.sender].isRegistered, "User already registered");
+
+        users[msg.sender] = User(true, 0);
+
+        emit UserRegistered(msg.sender);
+    }
+
+    function addBook(string memory _title, string memory _author) public onlyManager {
+        books.push(Book(_title, _author, true));
+        emit BookAdded(books.length - 1, _title, _author);
+    }
+
+    function borrowBook(uint256 bookId) public isRegisteredUser validBookId(bookId) bookAvailable(bookId) {
+        User storage user = users[msg.sender];
+        require(user.borrowedBooks < maxBorrowedBooks, "User has reached the maximum number of borrowed books");
+
+        books[bookId].isAvailable = false;
+        user.borrowedBooks++;
+        
+        emit BookBorrowed(msg.sender, bookId);
+    }
+
+    function returnBook(uint256 bookId) public isRegisteredUser validBookId(bookId) {
+        User storage user = users[msg.sender];
+        require(!books[bookId].isAvailable, "Book is already available");
+
+        books[bookId].isAvailable = true;
+        user.borrowedBooks--;
+
+        emit BookReturned(msg.sender, bookId);
+    }
+
+    function checkInvariants() public view {
+        // Ensure the manager address is not zero
+        assert(manager != address(0));
+
+        // Ensure no book is over-borrowed
+        for (uint256 i = 0; i < books.length; i++) {
+            if (!books[i].isAvailable) {
+                assert(users[msg.sender].borrowedBooks > 0);
+            }
+        }
+    }
 }
-
